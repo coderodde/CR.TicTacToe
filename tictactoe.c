@@ -1,4 +1,4 @@
-#ifdef _WIN32
+﻿#ifdef _WIN32
 // Otherwise, Visual Studio (2022) complains about scanf.
 #define _CRT_SECURE_NO_WARNINGS 
 #endif // _WIN32 
@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <time.h>
+#include <wchar.h>
 
 #define HEIGHT 3 
 #define WIDTH 3
@@ -24,7 +25,7 @@ static const int POSITIVE_INFINITY = +1000 * 1000 * 1000;
 static const int NEGATIVE_INFINITY = -1000 * 1000 * 1000;
 
 static char BOARD_SPRITE[BOARD_SPRITE_HEIGHT]
-                        [BOARD_SPRITE_WIDTH];
+                         [BOARD_SPRITE_WIDTH];
 
 static char BOARD_X_SPRITE[BOARD_CELL_SPRITE_HEIGHT]
                           [BOARD_CELL_SPRITE_WIDTH];
@@ -32,6 +33,9 @@ static char BOARD_X_SPRITE[BOARD_CELL_SPRITE_HEIGHT]
 static char BOARD_O_SPRITE[BOARD_CELL_SPRITE_HEIGHT]
                           [BOARD_CELL_SPRITE_WIDTH];
 
+/*****************************************
+Specifies the sprite for the entire board.
+*****************************************/
 static const char* BOARD_SPRITE_SOURCE =
 "+-------+-------+-------+"
 "|       |       |       |"
@@ -47,16 +51,25 @@ static const char* BOARD_SPRITE_SOURCE =
 "|       |       |       |"
 "+-------+-------+-------+";
 
+/***********************************
+Specifies the sprite for the X cell.
+***********************************/
 static const char* BOARD_X_SPRITE_SOURCE =
-" \\\\ // "
-"  |||  "
-" // \\\\ ";
+"  # #  "
+"   #   "
+"  # #  ";
 
+/***********************************
+Specifies the sprite for the O cell.
+***********************************/
 static const char* BOARD_O_SPRITE_SOURCE =
-"  ooo  "
-"  o o  "
-"  ooo  ";
+"  ###  "
+"  # #  "
+"  ###  ";
 
+/*********************************************
+Loads the entire board sprite from the source.
+*********************************************/
 static void load_board_sprite()
 {
     for (size_t y = 0; y < BOARD_SPRITE_HEIGHT; ++y) {
@@ -67,6 +80,9 @@ static void load_board_sprite()
     }
 }
 
+/*****************************************************
+Loads the board sprite for the X cell from the source.
+*****************************************************/
 static void  load_board_x_cell_sprite()
 {
     for (size_t y = 0; y < BOARD_CELL_SPRITE_HEIGHT; ++y) {
@@ -77,6 +93,9 @@ static void  load_board_x_cell_sprite()
     }
 }
 
+/*****************************************************
+Loads the board sprite for the O cell from the source.
+*****************************************************/
 static void  load_board_o_cell_sprite()
 {
     for (size_t y = 0; y < BOARD_CELL_SPRITE_HEIGHT; ++y) {
@@ -87,6 +106,9 @@ static void  load_board_o_cell_sprite()
     }
 }
 
+/*********************
+Loads all the sprites.
+*********************/
 static void load_all_sprites()
 {
     load_board_sprite();
@@ -94,10 +116,13 @@ static void load_all_sprites()
     load_board_o_cell_sprite();
 }
 
+/************************************************************
+Favor first the center position, then corners, then the rest.
+************************************************************/
 static const int PREFERENCE_FILTER[HEIGHT][WIDTH] = {
-    { 5, 0 , 5 },
+    { 5,  0, 5 },
     { 0, 20, 0 },
-    { 5, 0 , 5 },
+    { 5,  0, 5 },
 };
 
 typedef struct movement_t
@@ -112,7 +137,7 @@ typedef enum PlayerColor
     PLAYER_O, // Maximizing player; AI.
 } PlayerColor;
 
-PlayerColor Invert_Player_Color(PlayerColor player_color) {
+PlayerColor invert_player_color(PlayerColor player_color) {
     return player_color == PLAYER_X ? PLAYER_O : PLAYER_X;
 }
 
@@ -140,15 +165,22 @@ typedef enum WinningStatus {
 
 typedef struct board_t
 {
-    char* board_data;
-    char string_representation[BOARD_SPRITE_HEIGHT][BOARD_SPRITE_WIDTH];
+    BoardCellColor* board_data;
+    char string_representation[BOARD_SPRITE_HEIGHT]
+                              [BOARD_SPRITE_WIDTH];
 } board_t;
 
+/**************************
+Creates the internal board.
+**************************/
 static void board_t_init(board_t* board)
 {
     board->board_data = malloc(sizeof(BoardCellColor) * HEIGHT * WIDTH);
 }
 
+/*****************************************
+Returns the cell color at position (x, y).
+*****************************************/
 static BoardCellColor board_t_get_cell_color(board_t* board,
                                              size_t x,
                                              size_t y)
@@ -156,6 +188,9 @@ static BoardCellColor board_t_get_cell_color(board_t* board,
     return board->board_data[y * WIDTH + x];
 }
 
+/***********************************************************
+Returns the cell color at position (movement.x, movement.y).
+***********************************************************/
 static BoardCellColor
 board_t_get_cell_color_via_movement(board_t* board, movement_t movement)
 {
@@ -164,6 +199,9 @@ board_t_get_cell_color_via_movement(board_t* board, movement_t movement)
     return board_t_get_cell_color(board, x, y);
 }
 
+/*******************************************************************
+Checks whether the movement is valid and it points to an empty cell.
+*******************************************************************/
 static bool board_t_can_make_movement(board_t* board, movement_t movement)
 {
     if (movement.x >= WIDTH || movement.y >= HEIGHT) {
@@ -178,6 +216,9 @@ static bool board_t_can_make_movement(board_t* board, movement_t movement)
     return color != CELL_COLOR_X && color != CELL_COLOR_O;
 }
 
+/*********************************************
+Sets the color 'color' to the cell ('x', 'y').
+*********************************************/
 void board_t_set_cell_color(board_t* board,
                             size_t x,
                             size_t y,
@@ -186,6 +227,9 @@ void board_t_set_cell_color(board_t* board,
     board->board_data[HEIGHT * y + x] = color;
 }
 
+/***********************************************************
+Sets the color 'color' to the cell pointed to by 'movement'.
+***********************************************************/
 static void board_t_set_cell_color_via_movement(board_t* board,
                                                 movement_t movement,
                                                 BoardCellColor color)
@@ -193,6 +237,9 @@ static void board_t_set_cell_color_via_movement(board_t* board,
     board->board_data[movement.y * WIDTH + movement.x] = color;
 }
 
+/******************************************
+Sets the initial values to the input board.
+******************************************/ 
 static void board_t_set_initial_cell_values(board_t* board)
 {
     board->board_data = malloc(sizeof(BoardCellColor) * HEIGHT * WIDTH);
@@ -208,11 +255,17 @@ static void board_t_set_initial_cell_values(board_t* board)
     board_t_set_cell_color(board, 2, 2, CELL_COLOR_EMPTY_9);
 }
 
+/*******************************************
+Releases the memory held by the input board.
+*******************************************/
 static void board_t_free(board_t* board)
 {
     free(board->board_data);
 }
 
+/******************************************************
+Return true if the cell ('x', 'y') is empty in 'board'.
+******************************************************/
 static bool board_t_cell_is_empty(board_t* board, size_t x, size_t y) 
 {
     BoardCellColor color = board_t_get_cell_color(board, x, y);
@@ -227,6 +280,9 @@ static bool board_t_cell_is_empty(board_t* board, size_t x, size_t y)
     }
 }
 
+/*****************************************************************************
+Converts the board cell color to the movement pointing to that very same cell.
+*****************************************************************************/
 static movement_t convert_board_selector_to_move(BoardCellColor color) 
 {
     movement_t movement;
@@ -284,6 +340,9 @@ static movement_t convert_board_selector_to_move(BoardCellColor color)
     }
 }
 
+/*****************************
+Makes a movement to the board.
+*****************************/
 static void board_t_make_movement(board_t* board,
                                   movement_t movement,
                                   BoardCellColor board_cell_color)
@@ -296,6 +355,9 @@ static void board_t_make_movement(board_t* board,
     }
 }
 
+/****************
+Copies the board.
+****************/
 static board_t* board_t_copy(board_t* board)
 {
     board_t* copy = malloc(sizeof(*copy));
@@ -313,6 +375,9 @@ static board_t* board_t_copy(board_t* board)
     return copy;
 }
 
+/*****************************************************************
+Applies the entire board sprite to the board represenation buffer.
+*****************************************************************/
 static void apply_board_sprite(board_t* board)
 {
     for (size_t y = 0; y < BOARD_SPRITE_HEIGHT; ++y) {
@@ -322,6 +387,9 @@ static void apply_board_sprite(board_t* board)
     }
 }
 
+/***********************************************************
+Applies the cell sprites to the board representation buffer.
+***********************************************************/
 static void apply_board_cell_sprite(board_t* board,
                                     BoardCellColor color,
                                     size_t cell_x,   
@@ -367,6 +435,9 @@ static void apply_board_cell_sprite(board_t* board,
     }
 }
 
+/*****************************************************
+Performs the actual printing the board representation.
+*****************************************************/
 static void do_print(board_t* board)
 {
     for (size_t y = 0; y < BOARD_SPRITE_HEIGHT; ++y) {
@@ -374,10 +445,14 @@ static void do_print(board_t* board)
             printf("%c", board->string_representation[y][x]);
         }
 
+            
         puts("");
     }
 }
 
+/****************
+Prints the board.
+****************/
 static void board_t_print(board_t* board)
 {
     apply_board_sprite(board);
@@ -394,7 +469,10 @@ static void board_t_print(board_t* board)
     do_print(board);
 }
 
-static bool board_t_has_available_spots(board_t* board)
+/************************************
+Checks whether there are empty spots.
+************************************/
+static bool board_t_has_empty_spots(board_t* board)
 {
     for (size_t y = 0; y < HEIGHT; ++y) {
         for (size_t x = 0; x < WIDTH; ++x) {
@@ -409,6 +487,9 @@ static bool board_t_has_available_spots(board_t* board)
     return false;
 }
 
+/***********************************************************
+Converts the cell color to the corresponding winning status.
+***********************************************************/
 static WinningStatus
 cell_color_to_winning_status(BoardCellColor board_cell_color)
 {
@@ -424,6 +505,9 @@ cell_color_to_winning_status(BoardCellColor board_cell_color)
     return 0;
 }
 
+/*************************
+Checks the winning status.
+*************************/
 static WinningStatus board_t_get_winner_status(board_t* board)
 {
     for (size_t i = 0; i < 3; i++) {
@@ -472,13 +556,16 @@ static WinningStatus board_t_get_winner_status(board_t* board)
     }
 
     // There's no winner so we check if there's any empty space left yet.
-    if (!board_t_has_available_spots(board)) {
+    if (!board_t_has_empty_spots(board)) {
         return WIN_TIE;
     }
 
     return WIN_NA;
 }
 
+/******************************************
+Runs AI in order to find the next movement.
+******************************************/
 static movement_t compute_next_ai_movement(board_t* board)
 {
     int best_score = -10000;
@@ -513,6 +600,9 @@ static movement_t compute_next_ai_movement(board_t* board)
     return best_movement;
 }
 
+/*********************************************
+Converts player color to the board cell color.
+*********************************************/
 static BoardCellColor 
 player_color_to_board_cell_color(PlayerColor player_color)
 {
@@ -527,6 +617,9 @@ player_color_to_board_cell_color(PlayerColor player_color)
     return 0;
 }
 
+/************************************************
+Checks that 'ch' is between 1 and 9, inclusively.
+************************************************/
 static bool is_valid_position_character(char ch) {
     return '1' <= ch && ch <= '9';
 }
@@ -541,6 +634,9 @@ static size_t millis() {
 #endif
 }
 
+/********************************************
+The implementation of the Alpha-beta pruning.
+********************************************/
 int alpha_beta_pruning(board_t* board,
                        int depth,
                        int alpha,
@@ -661,11 +757,17 @@ int alpha_beta_pruning(board_t* board,
     }
 }
 
+/*******************************
+Generates a random player color.
+*******************************/
 static PlayerColor generate_random_player_color()
 {
     return rand() % 2 == 0 ? PLAYER_X : PLAYER_O;
 }
 
+/**************************
+Runs a match against a bot.
+**************************/
 void bot_mode()
 {
     board_t board;
@@ -750,11 +852,11 @@ void bot_mode()
         }
 
         // Invert the player
-        player_color = Invert_Player_Color(player_color);
+        player_color = invert_player_color(player_color);
     }
 }
 
-int main(void)
+int wmain(int argc, wchar_t* argv[])
 {
     // v
     // v
